@@ -1,5 +1,4 @@
 
--- TODO: возможно стоит сделать все поля с проверками вида role IN ('ROLE_ARTIST', 'ROLE_EXPERT', 'ROLE_RESIDENCE_ADMIN', 'ROLE_SUPERADMIN') enum
 -- enums 
 CREATE TYPE art_direction_enum AS ENUM (
     'painting',
@@ -103,7 +102,7 @@ CREATE TABLE application_requests (
     program_id       BIGINT NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
     -- TODO: возможно надо добавить ограничение на добавление только с ролью ROLE_ARTIST
     -- если художник участвовал в программе, его нельзя удалять
-    artist_id        BIGINT NOT NULL REFERENCES artist_details(id) ON DELETE RESTRICT,
+    artist_id        BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     status           VARCHAR(50) NOT NULL CHECK (status IN (
                         'sent', 'reviewed', 'approved', 'reserve',
                         'rejected', 'confirmed', 'declined_by_artist')),
@@ -169,7 +168,7 @@ CREATE TABLE reviews (
     -- отзывы без программы ненужны
     program_id   BIGINT NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
     -- сохраняем исторические данные
-    artist_id    BIGINT NOT NULL REFERENCES artist_details(id) ON DELETE RESTRICT,
+    artist_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     score        INT CHECK (score >= 1 AND score <= 10),
     comment      TEXT,
     created_at   TIMESTAMP DEFAULT now(),
@@ -210,10 +209,7 @@ CREATE TABLE residence_stats (
     updated_at      TIMESTAMP DEFAULT now()
 );
 
---------------------------------------------------------------------------
--- ФУНКЦИИ И ТРИГГЕРЫ
---------------------------------------------------------------------------
--- TODO: чтобы увеличивать просмотры с помощью триггера, надо добавить таблицу:
+-- таблица для просмотров программ
 CREATE TABLE program_views_log (
     id BIGSERIAL PRIMARY KEY,
     -- просмотры без программы бессмыслены
@@ -221,6 +217,17 @@ CREATE TABLE program_views_log (
     viewed_at TIMESTAMP DEFAULT now()
 );
 
+-- таблица для просмотров резиденций
+CREATE TABLE residence_views_log (
+    id BIGSERIAL PRIMARY KEY,
+    -- просмотры без резиденции бессмыслены
+    residence_id BIGINT REFERENCES residence_details(id) ON DELETE CASCADE,
+    viewed_at TIMESTAMP DEFAULT now()
+);
+
+--------------------------------------------------------------------------
+-- ФУНКЦИИ И ТРИГГЕРЫ
+--------------------------------------------------------------------------
 -- и при при просмотре таблицы создавать запись в таблице для логов, что автоматом увеличит значение
 CREATE OR REPLACE FUNCTION increment_program_view()
 RETURNS TRIGGER AS $$
@@ -239,13 +246,6 @@ AFTER INSERT ON program_views_log
 FOR EACH ROW
 EXECUTE FUNCTION increment_program_view();
 
--- TODO: чтобы увеличивать просмотры с помощью триггера, надо добавить таблицу:
-CREATE TABLE residence_views_log (
-    id BIGSERIAL PRIMARY KEY,
-    -- просмотры без резиденции бессмыслены
-    residence_id BIGINT REFERENCES residence_details(id) ON DELETE CASCADE,
-    viewed_at TIMESTAMP DEFAULT now()
-);
 
 -- и при при просмотре таблицы создавать запись в таблице для логов, что автоматом увеличит значение
 CREATE OR REPLACE FUNCTION increment_residence_view()
@@ -265,6 +265,7 @@ AFTER INSERT ON residence_views_log
 FOR EACH ROW
 EXECUTE FUNCTION increment_residence_view();
 
+
 -- автоматическое увеличение количества заявок для программы
 CREATE OR REPLACE FUNCTION increment_applications_count()
 RETURNS TRIGGER AS $$
@@ -282,3 +283,86 @@ CREATE TRIGGER trg_program_application
 AFTER INSERT ON application_requests
 FOR EACH ROW
 EXECUTE FUNCTION increment_applications_count();
+
+
+-- проверка роли ROLE_EXPERT при добавлении эксперта на программу
+CREATE OR REPLACE FUNCTION check_expert_role()
+RETURNS trigger AS $$
+DECLARE
+    user_role varchar(50);
+BEGIN
+    SELECT role INTO user_role FROM users WHERE id = NEW.user_id;
+
+    IF user_role IS NULL THEN
+        RAISE EXCEPTION 'Пользователь с id=% не существует', NEW.user_id;
+    END IF;
+
+    IF user_role <> 'ROLE_EXPERT' THEN
+        RAISE EXCEPTION
+            'Нельзя назначить пользователя (id=%) экспертом, так как его роль = % (ожидается ROLE_EXPERT)',
+            NEW.user_id, user_role;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_check_expert_role
+BEFORE INSERT ON program_experts
+FOR EACH ROW
+EXECUTE FUNCTION check_expert_role();
+
+
+-- проверка роли ROLE_ARTIST при создании заявки на программу
+CREATE OR REPLACE FUNCTION check_artist_role()
+RETURNS trigger AS $$
+DECLARE
+    user_role varchar(50);
+BEGIN
+    SELECT role INTO user_role FROM users WHERE id = NEW.user_id;
+
+    IF user_role IS NULL THEN
+        RAISE EXCEPTION 'Пользователь с id=% не существует', NEW.user_id;
+    END IF;
+
+    IF user_role <> 'ROLE_ARTIST' THEN
+        RAISE EXCEPTION
+            'Нельзя назначить пользователя (id=%) экспертом, так как его роль = % (ожидается ROLE_ARTIST)',
+            NEW.user_id, user_role;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_check_artist_role
+BEFORE INSERT ON application_requests
+FOR EACH ROW
+EXECUTE FUNCTION check_artist_role();
+
+-- проверка роли ROLE_RESIDENCE_ADMIN при создании заявки на программу
+CREATE OR REPLACE FUNCTION check_admine_role()
+RETURNS trigger AS $$
+DECLARE
+    user_role varchar(50);
+BEGIN
+    SELECT role INTO user_role FROM users WHERE id = NEW.user_id;
+
+    IF user_role IS NULL THEN
+        RAISE EXCEPTION 'Пользователь с id=% не существует', NEW.user_id;
+    END IF;
+
+    IF user_role <> 'ROLE_RESIDENCE_ADMIN' THEN
+        RAISE EXCEPTION
+            'Нельзя назначить пользователя (id=%) экспертом, так как его роль = % (ожидается ROLE_RESIDENCE_ADMIN)',
+            NEW.user_id, user_role;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_check_admine_role
+BEFORE INSERT ON application_requests
+FOR EACH ROW
+EXECUTE FUNCTION check_admine_role();

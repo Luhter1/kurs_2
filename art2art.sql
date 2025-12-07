@@ -72,7 +72,6 @@ CREATE TABLE programs (
     deadline_apply              DATE NOT NULL,
     deadline_review             DATE NOT NULL,
     deadline_notify             DATE NOT NULL,
-    status                      VARCHAR(50) NOT NULL CHECK (status IN ('pending', 'approved', 'rejected')), -- TODO
     duration_days               INT CHECK (duration_days >= 0),
     budget_quota                INT CHECK (budget_quota >= 0),
     people_quota                INT CHECK (people_quota >= 0),

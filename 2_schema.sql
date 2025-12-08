@@ -418,7 +418,7 @@ $$;
 ----------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION submit_application(
     p_artist_user_id BIGINT,
-    p_program_id BIGINT,
+    p_program_id BIGINT
 ) RETURNS BIGINT
 LANGUAGE plpgsql
 AS $$
@@ -587,7 +587,7 @@ BEGIN
     IF p_assigner_user_id <> v_owner THEN
         PERFORM 1 FROM art_users WHERE id = p_assigner_user_id AND role = 'ROLE_SUPERADMIN';
         IF NOT FOUND THEN
-            RAISE EXCEPTION 'User % not authorized to assign expert to program %', p_assigner_user_id;
+            RAISE EXCEPTION 'User % not authorized to assign expert to program %', p_assigner_user_id, p_program_id;
         END IF;
     END IF;
 

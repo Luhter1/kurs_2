@@ -1,5 +1,5 @@
 -- Вставка тестовых пользователей
-INSERT INTO users (email, password_hash, name, surname, role) VALUES
+INSERT INTO art_users (email, password_hash, name, surname, role) VALUES
 ('superadmin@example.com', '$2a$10$xJwL5v5z3b3Z3b3Z3b3Z3u', 'Супер', 'Админ', 'ROLE_SUPERADMIN'),
 ('admin1@example.com', '$2a$10$xJwL5v5z3b3Z3b3Z3b3Z3u', 'Иван', 'Иванов', 'ROLE_RESIDENCE_ADMIN'),
 ('admin2@example.com', '$2a$10$xJwL5v5z3b3Z3b3Z3b3Z3u', 'Петр', 'Петров', 'ROLE_RESIDENCE_ADMIN'),
@@ -61,10 +61,10 @@ INSERT INTO application_requests (program_id, artist_id, status) VALUES
 
 -- Вставка оценок заявок
 INSERT INTO application_evaluations (application_id, expert_id, score, comment) VALUES
-(1, 1, 85, 'Сильная заявка с интересным подходом'),
-(1, 2, 90, 'Отличная работа, рекомендую к участию'),
-(4, 3, 75, 'Хорошая заявка, но требует доработки'),
-(6, 4, 88, 'Очень сильный портфолио');
+(1, 1, 8, 'Сильная заявка с интересным подходом'),
+(1, 2, 9, 'Отличная работа, рекомендую к участию'),
+(4, 3, 7, 'Хорошая заявка, но требует доработки'),
+(6, 4, 8, 'Очень сильный портфолио');
 
 -- Вставка работ портфолио
 INSERT INTO portfolio_works (artist_id, title, description, link, art_direction, date) VALUES

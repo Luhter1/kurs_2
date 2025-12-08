@@ -11,7 +11,7 @@ CREATE TYPE art_direction_enum AS ENUM (
 );
 
 -- таблица пользователей
-CREATE TABLE users (
+CREATE TABLE art_users (
     id              BIGSERIAL PRIMARY KEY,
     email           VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(128) NOT NULL,
@@ -27,7 +27,7 @@ CREATE TABLE users (
 CREATE TABLE artist_details (
     id          BIGSERIAL PRIMARY KEY,
     -- профиль художника - расширение записи пользователя. Если пользователь удаляется, то и данные профиля
-    user_id     BIGINT UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id     BIGINT UNIQUE NOT NULL REFERENCES art_users(id) ON DELETE CASCADE,
     location    VARCHAR(255),
     created_at  TIMESTAMP DEFAULT now(),
     updated_at  TIMESTAMP DEFAULT now()
@@ -37,7 +37,7 @@ CREATE TABLE artist_details (
 CREATE TABLE residence_details (
     id              BIGSERIAL PRIMARY KEY,
     -- удаление администратора резиденции не должно автоматически удалять саму резиденцию
-    user_id         BIGINT UNIQUE NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    user_id         BIGINT UNIQUE NOT NULL REFERENCES art_users(id) ON DELETE RESTRICT,
     title           VARCHAR(255) NOT NULL,
     description     TEXT,
     location        VARCHAR(255),
@@ -84,7 +84,7 @@ CREATE TABLE program_experts (
     -- если программа удалена, то все назначения экспертов должны быть удалены.
     program_id                      BIGINT NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
     -- нельзя удалять эксперта, если он назначен на действующие программы
-    user_id                         BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    user_id                         BIGINT NOT NULL REFERENCES art_users(id) ON DELETE RESTRICT,
     assigned_at                     TIMESTAMP DEFAULT now(),
     created_at                      TIMESTAMP DEFAULT now(),
     -- требование, чтобы эксперт мог быть назначен на программу только 1 раз
@@ -97,7 +97,7 @@ CREATE TABLE application_requests (
     -- без программы заявки не имеют смысла
     program_id       BIGINT NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
     -- если художник участвовал в программе, его нельзя удалять
-    artist_id        BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    artist_id        BIGINT NOT NULL REFERENCES art_users(id) ON DELETE RESTRICT,
     status           VARCHAR(50) NOT NULL CHECK (status IN (
                         'sent', 'reviewed', 'approved', 'reserve',
                         'rejected', 'confirmed', 'declined_by_artist')),
@@ -163,7 +163,7 @@ CREATE TABLE reviews (
     -- отзывы без программы ненужны
     program_id   BIGINT NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
     -- сохраняем исторические данные
-    artist_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    artist_id    BIGINT NOT NULL REFERENCES art_users(id) ON DELETE RESTRICT,
     score        INT CHECK (score >= 1 AND score <= 10),
     comment      TEXT,
     created_at   TIMESTAMP DEFAULT now(),
@@ -175,7 +175,7 @@ CREATE TABLE reviews (
 CREATE TABLE notifications (
     id            BIGSERIAL PRIMARY KEY,
     -- уведомления для пользователя без пользователя ненужны
-    user_id       BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id       BIGINT NOT NULL REFERENCES art_users(id) ON DELETE CASCADE,
     message       TEXT NOT NULL,
     link          TEXT,
     category      VARCHAR(50) CHECK (category IN ('system', 'invite', 'review', 'status')),
@@ -438,7 +438,7 @@ BEGIN
     END IF;
 
     -- проверка роли художника
-    PERFORM 1 FROM users WHERE id = p_artist_user_id AND role = 'ROLE_ARTIST';
+    PERFORM 1 FROM art_users WHERE id = p_artist_user_id AND role = 'ROLE_ARTIST';
     IF NOT FOUND THEN
         RAISE EXCEPTION 'User % is not an artist', p_artist_user_id;
     END IF;
@@ -577,7 +577,7 @@ BEGIN
     END IF;
 
     -- проверка роли
-    PERFORM 1 FROM users WHERE id = p_expert_user_id AND role = 'ROLE_EXPERT';
+    PERFORM 1 FROM art_users WHERE id = p_expert_user_id AND role = 'ROLE_EXPERT';
     IF NOT FOUND THEN
         RAISE EXCEPTION 'User % is not an expert', p_expert_user_id;
     END IF;
@@ -585,7 +585,7 @@ BEGIN
     -- проверка прав назначающего
     SELECT rd.user_id INTO v_owner FROM residence_details rd WHERE rd.id = v_program.residence_id;
     IF p_assigner_user_id <> v_owner THEN
-        PERFORM 1 FROM users WHERE id = p_assigner_user_id AND role = 'ROLE_SUPERADMIN';
+        PERFORM 1 FROM art_users WHERE id = p_assigner_user_id AND role = 'ROLE_SUPERADMIN';
         IF NOT FOUND THEN
             RAISE EXCEPTION 'User % not authorized to assign expert to program %', p_assigner_user_id;
         END IF;
@@ -744,10 +744,10 @@ $$;
 ----------------------------------------------------------------------
 
 -- поиск по email самый частый сценарий при регистрации и автризации
-CREATE UNIQUE INDEX idx_users_email ON users(email);
+CREATE UNIQUE INDEX idx_users_email ON art_users(email);
 
 -- много операций с выборками по определенным ролям: назначение экспертов, ...
-CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_users_role ON art_users(role);
 
 ----------------------------------------------------------------------
 -- индексы для резиденций и программ
